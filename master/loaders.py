@@ -17,8 +17,8 @@ def worker_init_fn(worker_id):
     np.random.seed(np.random.get_state()[1][0] + worker_id)
 
 
+# Function to normalize input image to intensity range [0,1]
 def normalize(image, path=None):
-
     if image.min() == 0 and image.max() == 0:
         return image
     else:
@@ -34,9 +34,11 @@ def normalize(image, path=None):
         return image
 
 
+# Dataset class to create dataset used during (main) trainnig of ANCR-Net
 class MSLesionDataset(Dataset):
-    def __init__(self, dataset, train=False, preprocessed=False, slices_used=0.5, inshape=(5, 368, 512)):
+    def __init__(self, dataset, rootdir, train=False, slices_used=0.5, inshape=(5, 368, 512)):
         # dataset defines which images to use as test data, training fold 1 - 5 (indexed by 0 - 4)
+        # rootdir: path to data
 
         if not dataset in [0, 1, 2, 3, 4]:
             raise Exception('Dataset must be one of the following: 0, 1, 2, 3, 4.')
@@ -58,13 +60,6 @@ class MSLesionDataset(Dataset):
                      [16, 24, 32, 47, 57, 74, 89, 96],
                      [18, 26, 35, 48, 61, 70, 90, 99]]
 
-        if preprocessed:
-            rootdir = '/mnt/myremote/MSSEG-2/LongitudinalMultipleSclerosis' \
-                      'LesionSegmentationChallengeMiccai21/training_v2_preprocessed'
-        else:
-            rootdir = '/mnt/myremote/MSSEG-2/LongitudinalMultipleSclerosis' \
-                      'LesionSegmentationChallengeMiccai21/training_v2'
-
         pat_id = 0
         img_id = 0
         for dir, _, _ in os.walk(rootdir):
@@ -74,13 +69,7 @@ class MSLesionDataset(Dataset):
 
                     baseline_path = os.path.join(dir, 'flair_time01_on_middle_space.nii.gz')
                     followup_path = os.path.join(dir, 'flair_time02_on_middle_space.nii.gz')
-
-                    if preprocessed:
-                        brain_mask_path = os.path.join(dir, 'brain_mask.nii.gz')
-                    else:
-                        brain_mask_path = os.path.join(dir.replace('training_v2', 'training_v2_preprocessed'),
-                                                       'brain_mask.nii.gz')
-
+                    brain_mask_path = os.path.join(dir, 'brain_mask.nii.gz')
                     segm_path = os.path.join(dir, 'ground_truth.nii.gz')
 
                     baseline_img = nib.load(baseline_path)
@@ -119,8 +108,7 @@ class MSLesionDataset(Dataset):
                         s = segm_vol[0, slice - inshape[0]//2:slice + inshape[0]//2 + 1, ...].numpy()
                         m = brain_vol[0, slice - inshape[0]//2:slice + inshape[0]//2 + 1, ...].numpy()
 
-                        # Use slices containing ground-truth segmentations twice to give more feedback to
-                        # segmentation refinement network
+                        # Use slices containing ground-truth segmentations twice with different orientations
                         if s.sum():
                             self.images_baseline[img_id] = b
                             self.images_followup[img_id] = f
@@ -150,13 +138,7 @@ class MSLesionDataset(Dataset):
 
                     baseline_path = os.path.join(dir, 'flair_time01_on_middle_space.nii.gz')
                     followup_path = os.path.join(dir, 'flair_time02_on_middle_space.nii.gz')
-
-                    if preprocessed:
-                        brain_mask_path = os.path.join(dir, 'brain_mask.nii.gz')
-                    else:
-                        brain_mask_path = os.path.join(dir.replace('training_v2', 'training_v2_preprocessed'),
-                                                       'brain_mask.nii.gz')
-
+                    brain_mask_path = os.path.join(dir, 'brain_mask.nii.gz')
                     segm_path = os.path.join(dir, 'ground_truth.nii.gz')
 
                     baseline_img = nib.load(baseline_path)
@@ -311,7 +293,7 @@ class MSLesionDataset(Dataset):
 
 
 class MSLesionDataset_Pretraining(Dataset):
-    def __init__(self, dataset, train=False, preprocessed=False, slices_used=0.5, inshape=(3, 368, 512)):
+    def __init__(self, dataset, rootdir, train=False, slices_used=0.5, inshape=(3, 368, 512)):
         # dataset defines which images to use as test data, training fold 1 - 5 (indexed by 0 - 4)
 
         if not dataset in [0, 1, 2, 3, 4]:
@@ -334,13 +316,6 @@ class MSLesionDataset_Pretraining(Dataset):
                      [16, 24, 32, 47, 57, 74, 89, 96],
                      [18, 26, 35, 48, 61, 70, 90, 99]]
 
-        if preprocessed:
-            rootdir = '/mnt/myremote/MSSEG-2/LongitudinalMultipleSclerosis' \
-                      'LesionSegmentationChallengeMiccai21/training_v2_preprocessed'
-        else:
-            rootdir = '/mnt/myremote/MSSEG-2/LongitudinalMultipleSclerosis' \
-                      'LesionSegmentationChallengeMiccai21/training_v2'
-
         pat_id = 0
         img_id = 0
         for dir, _, _ in os.walk(rootdir):
@@ -351,12 +326,7 @@ class MSLesionDataset_Pretraining(Dataset):
                     # Use only baseline images for pretraining
                     baseline_path = os.path.join(dir, 'flair_time01_on_middle_space.nii.gz')
                     segm_path = os.path.join(dir, 'ground_truth.nii.gz')
-
-                    if preprocessed:
-                        brain_mask_path = os.path.join(dir, 'brain_mask.nii.gz')
-                    else:
-                        brain_mask_path = os.path.join(dir.replace('training_v2', 'training_v2_preprocessed'),
-                                                       'brain_mask.nii.gz')
+                    brain_mask_path = os.path.join(dir, 'brain_mask.nii.gz')
 
                     baseline_img = nib.load(baseline_path)
                     segm_img = nib.load(segm_path)
@@ -540,11 +510,13 @@ class MSLesionDataset_Pretraining(Dataset):
             b = normalize(b)
             f = normalize(f)
 
+            # Random number of added new lesions
             n_lesions = np.random.randint(1, 6)
-
+            # New lesions should only be added at positions defined by p
             pos1, pos2, pos3 = np.where(p)
             rand_idx = np.random.randint(0, len(pos1), n_lesions)
 
+            # Add artificial new lesions
             for idx in rand_idx:
                 c3 = pos1[idx]
                 c2 = pos2[idx]
@@ -586,6 +558,7 @@ class MSLesionDataset_Pretraining(Dataset):
                 "patient_id": i}
 
 
+# Function to resample MRIs to isotropic resolution and image size Dx368x512
 def new_resample(image, spacing, size, mode='bilinear'):
     x, y, z = spacing
     W, H, D = size
@@ -646,6 +619,7 @@ def new_resample(image, spacing, size, mode='bilinear'):
     return image, {'step3p1': p1, 'step3p2': p2, 'step3p3': p3, 'step3p4': p4}
 
 
+# Function to generate artificial new lesions (gaussian ellipsoids)
 def gaussian(sigma1, c1, sigma2, c2, sigma3, c3, inshape):
 
     def gauss_fcn1(x):

@@ -21,6 +21,7 @@ if __name__ == '__main__':
     # ------------- TO DO ----------------------------
     # Add your paths here.
     path = "path/to/workingDirectory"
+    rootdir = "path/to/data"
     # ------------------------------------------------
 
     torch.backends.cudnn.benchmark = False
@@ -49,7 +50,7 @@ if __name__ == '__main__':
 
         # Generate dataset for pre-training
         # Artificial new lesions are added on the fly during training
-        dataset_train = MSLesionDataset_Pretraining(dataset=dataset, train=True, preprocessed=False, slices_used=0.5,
+        dataset_train = MSLesionDataset_Pretraining(dataset=dataset, rootdir=rootdir, train=True, slices_used=0.5,
                                                     inshape=inshape)
         print('Generated train dataset.')
         loader_train = DataLoader(dataset=dataset_train,

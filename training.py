@@ -21,6 +21,7 @@ if __name__ == '__main__':
     # Add your paths here.
     path = "path/to/workingDirectory"
     pretrain_path = "path/to/pretrainedNetworks"
+    rootdir = "path/to/data"
     # ------------------------------------------------
 
     torch.backends.cudnn.benchmark = False
@@ -64,8 +65,7 @@ if __name__ == '__main__':
         best_train_dice_loss = np.infty
 
         # Generate train dataset
-        dataset_train = MSLesionDataset(dataset=dataset, train=True, preprocessed=False,
-                                        slices_used=0.00, inshape=inshape)
+        dataset_train = MSLesionDataset(dataset=dataset, rootdir=rootdir, train=True, slices_used=0.00, inshape=inshape)
         print('Generated train dataset')
         loader_train = DataLoader(dataset=dataset_train,
                                   batch_size=batch_size,
