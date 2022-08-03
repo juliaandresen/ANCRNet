@@ -292,6 +292,8 @@ class MSLesionDataset(Dataset):
                 "patient_id": i}
 
 
+# Dataset class to create dataset used during pre-trainnig of ANCR-Net
+# In __getitem__() artificial new lesions are added to the images at random 
 class MSLesionDataset_Pretraining(Dataset):
     def __init__(self, dataset, rootdir, train=False, slices_used=0.5, inshape=(3, 368, 512)):
         # dataset defines which images to use as test data, training fold 1 - 5 (indexed by 0 - 4)
