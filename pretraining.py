@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from master.loaders import normalize, worker_init_fn, new_resample, MSLesionDataset_Pretraining
 from master.losses import DiceLoss, NCCLoss, VectorFieldSmoothness
-from master.networks import SpatialTransformer, NoCoRegNet
+from master.networks import SpatialTransformer, ANCRNet
 
 
 # Pretraining
@@ -61,8 +61,8 @@ if __name__ == '__main__':
                                   worker_init_fn=worker_init_fn)
 
         print('Initializing network, optimizer and scheduler...')
-        noCoRegNet = NoCoRegNet(n_feat=n_feat, inshape=inshape, device=device).cuda()
-        optimizer = torch.optim.Adam(noCoRegNet.parameters(), lr=0.0001)
+        ancrNet = ANCRNet(n_feat=n_feat, inshape=inshape, device=device).cuda()
+        optimizer = torch.optim.Adam(ancrNet.parameters(), lr=0.0001)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=n_epochs//10, gamma=0.8)
 
         # Initialize loss functions
@@ -83,7 +83,7 @@ if __name__ == '__main__':
             sum_regress = 0
 
             # Parameters must be trainable
-            noCoRegNet.train()
+            ancrNet.train()
             with torch.set_grad_enabled(True):
                 b = 0
                 # main loop to process all training samples (packed into batches)
@@ -117,7 +117,7 @@ if __name__ == '__main__':
                     # segmentation of new lesions (noCoMap) and appearanace offsets (appMap);
                     # each for all three resolution levels
                     _, phi1, warped1, _, phi2, _, _, phi3, _, \
-                    noCoMap1, noCoMap2, noCoMap3, appMap1, _, _ = noCoRegNet(moving=moving, fixed=fixed, diff=diff)
+                    noCoMap1, noCoMap2, noCoMap3, appMap1, _, _ = ancrNet(moving=moving, fixed=fixed, diff=diff)
 
                     # Loss components: Regression of ground-truth deformation and Dice loss
                     r1 = def_field_regress_loss(def_field1, phi1)
@@ -222,8 +222,8 @@ if __name__ == '__main__':
 
             # Store network parameters after every epoch
             state = {'time': str(datetime.datetime.now()),
-                     'model_state': noCoRegNet.state_dict(),
-                     'model_name': type(noCoRegNet).__name__,
+                     'model_state': ancrNet.state_dict(),
+                     'model_name': type(ancrNet).__name__,
                      'optimizer_state': optimizer.state_dict(),
                      'optimizer_name': type(optimizer).__name__,
                      'scheduler_state': scheduler.state_dict(),

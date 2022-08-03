@@ -21,7 +21,7 @@ class ConvBlock(nn.Module):
         return output
 
 
-class NoCoRegNet(nn.Module):
+class ANCRNet(nn.Module):
     def __init__(self, n_feat, inshape, device, int_steps=7):
         super().__init__()
         self.device = device
@@ -150,7 +150,6 @@ class NoCoRegNet(nn.Module):
         v1 = F.interpolate(output7, scale_factor=(1, 2, 2), mode='trilinear')
         v2 = F.interpolate(output6_2, scale_factor=(1, 2, 2), mode='trilinear')
         v3 = F.interpolate(output5_2, scale_factor=(1, 2, 2), mode='trilinear')
-        #print(output7.shape, v1.shape)
 
         phi1 = self.integrate1(v1)
         phi2 = self.integrate2(v2)
@@ -173,24 +172,15 @@ class NoCoRegNet(nn.Module):
         noCoMap1 = self.dec_noCoMap(torch.cat([output0, output0_1, segm7_upscaled], dim=1))
         appMap1 = self.dec_appearanceMap(torch.cat([output0, output0_1, segm7_upscaled], dim=1))
 
-        # Baseline 2
         out1 = self.transformer1(moving + noCoMap1 * appMap1, phi1)
         out2 = self.transformer2(moving2 + noCoMap2 * appMap2, phi2)
         out3 = self.transformer3(moving3 + noCoMap3 * appMap3, phi3)
-
-        # Baseline 1
-        # deformed1 = self.transformer1(moving, phi1)
-        # deformed2 = self.transformer2(moving2, phi2)
-        # deformed3 = self.transformer3(moving3, phi3)
-        #
-        # out1 = deformed1 + noCoMap1 * appearanceMap1
-        # out2 = deformed2 + noCoMap2 * appearanceMap2
-        # out3 = deformed3 + noCoMap3 * appearanceMap3
 
         return v1, phi1, out1, v2, phi2, out2, v3, phi3, out3, \
                noCoMap1, noCoMap2, noCoMap3, appMap1, appMap2, appMap3
 
 
+# Source: https://github.com/voxelmorph/voxelmorph.git
 class VecInt(nn.Module):
     """
     Integrates a vector field via scaling and squaring.
@@ -211,6 +201,7 @@ class VecInt(nn.Module):
         return vec
 
 
+# Source: https://github.com/voxelmorph/voxelmorph.git
 class SpatialTransformer(nn.Module):
     """
     N-D Spatial Transformer

@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from master.loaders import normalize, worker_init_fn, new_resample, MSLesionDataset
 from master.losses import DiceLoss, NCCLoss, VectorFieldSmoothness
-from master.networks import SpatialTransformer, NoCoRegNet
+from master.networks import SpatialTransformer, ANCRNet
 
 
 # Main training
@@ -75,16 +75,16 @@ if __name__ == '__main__':
                                   worker_init_fn=worker_init_fn)
 
         # Initialize network, optimizer and scheduler
-        noCoRegNet = NoCoRegNet(n_feat=n_feat, inshape=inshape, device=device).cuda()
-        optimizer = torch.optim.Adam(noCoRegNet.parameters(), lr=0.0001)
+        ancrNet = ANCRNet(n_feat=n_feat, inshape=inshape, device=device).cuda()
+        optimizer = torch.optim.Adam(ancrNet.parameters(), lr=0.0001)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=n_epochs // 10, gamma=0.8)
 
         # Load weights generated in pre-training
         print('Loading pretrained deformable registration net...')
-        noCoRegNet.load_state_dict(torch.load(os.path.join(pretrain_path,
-                                                           'registrationNet_lastEpoch_split' + str(dataset) + '.pt'),
-                                              map_location=device)['model_state'])
-        noCoRegNet.train()
+        ancrNet.load_state_dict(torch.load(os.path.join(pretrain_path,
+                                                        'registrationNet_lastEpoch_split' + str(dataset) + '.pt'),
+                                           map_location=device)['model_state'])
+        ancrNet.train()
 
         time = '/fold' + str(dataset)
         print('Starting training at ' + time)
@@ -121,9 +121,9 @@ if __name__ == '__main__':
                     # segmentation of new lesions (noCoMap) and appearanace offsets (appMap);
                     # each for all three resolution levels
                     v1, phi1, warped1, v2, phi2, warped2, v3, phi3, warped3, \
-                    noCoMap1, noCoMap2, noCoMap3, appMap1, appMap2, appMap3 = noCoRegNet(moving=baseline,
-                                                                                         fixed=followup,
-                                                                                         diff=diff)
+                    noCoMap1, noCoMap2, noCoMap3, appMap1, appMap2, appMap3 = ancrNet(moving=baseline,
+                                                                                      fixed=followup,
+                                                                                      diff=diff)
 
                     # Loss components: Deformation field regularizer, image distance, Dice loss
                     # Each component is calculated on three resolution levels
@@ -229,8 +229,8 @@ if __name__ == '__main__':
 
             # Store network parameters after every epoch
             state = {'time': str(datetime.datetime.now()),
-                     'model_state': noCoRegNet.state_dict(),
-                     'model_name': type(noCoRegNet).__name__,
+                     'model_state': ancrNet.state_dict(),
+                     'model_name': type(ancrNet).__name__,
                      'optimizer_state': optimizer.state_dict(),
                      'optimizer_name': type(optimizer).__name__,
                      'scheduler_state': scheduler.state_dict(),
